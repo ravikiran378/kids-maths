@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Math Quiz!</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #2ECC71;
+            --danger-color: #E74C3C;
+            --background-color: #F5F7FA;
+            --text-color: #2C3E50;
+            --warning-blink: #FADBD8; /* Gentle, eye-friendly light red */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            transition: background-color 0.1s ease;
+        }
+
+        /* Flash class applied programmatically every second */
+        body.countdown-flash {
+            background-color: var(--warning-blink) !important;
+        }
+
+        .quiz-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            box-sizing: border-box;
+            margin: 20px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+
+        .btn {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            background-color: #27AE60;
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Level Selector Styling */
+        .level-selector {
+            margin: 25px 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .level-btn {
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: 3px solid #BDC3C7;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .level-btn[data-level="easy"]:hover, .level-btn[data-level="easy"].selected {
+            border-color: #2ECC71;
+            background-color: #E8F8F5;
+            color: #27AE60;
+        }
+
+        .level-btn[data-level="medium"]:hover, .level-btn[data-level="medium"].selected {
+            border-color: #E67E22;
+            background-color: #FDF2E9;
+            color: #D35400;
+        }
+
+        /* Quiz UI Elements */
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .timer {
+            color: var(--danger-color);
+            background: #FDEDEC;
+            padding: 5px 15px;
+            border-radius: 15px;
+            border: 1px solid #FADBD8;
+            transition: all 0.2s ease;
+        }
+
+        .timer.warning-active {
+            background-color: var(--danger-color);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .question-box {
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin: 25px 0;
+            color: var(--text-color);
+        }
+
+        input[type="number"] {
+            font-size: 1.8rem;
+            padding: 10px;
+            width: 160px;
+            text-align: center;
+            border: 2px solid #BDC3C7;
+            border-radius: 10px;
+            outline: none;
+            margin-bottom: 20px;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Summary Breakdown Table */
+        .history-container {
+            margin-top: 30px;
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #E2E8F0;
+            text-align: center;
+        }
+
+        th {
+            background-color: #F8FAFC;
+            color: #64748B;
+            position: sticky;
+            top: 0;
+        }
+
+        .correct-row { color: var(--secondary-color); font-weight: bold; }
+        .wrong-row { color: var(--danger-color); font-weight: bold; }
+        .timeout-row { color: #7F8C8D; font-style: italic; }
+
+        .feedback-msg {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="quiz-container">
+        <div id="start-screen">
+            <h1>Multiplication Quiz! 🎒</h1>
+            <p>Pick your challenge level to begin:</p>
+            
+            <div class="level-selector">
+                <button class="level-btn selected" data-level="easy">Easy<br><small>(1x1 to 10x10)</small></button>
+                <button class="level-btn" data-level="medium">Medium<br><small>(1x1 to 20x20)</small></button>
+            </div>
+
+            <p>10 Questions • 1 Minute Each • Final 10-second alert countdown!</p>
+            <button class="btn" id="start-btn">Start Quiz</button>
+        </div>
+
+        <div id="quiz-screen" class="hidden">
+            <div class="quiz-header">
+                <div>Question: <span id="q-num">1</span>/10</div>
+                <div class="timer" id="timer-box">Time left: <span id="timer-count">60</span>s</div>
+            </div>
+            
+            <div class="question-box" id="question-text"></div>
+
+            <form id="quiz-form" autocomplete="off">
+                <div>
+                    <input type="number" id="answer-input" placeholder="?" required>
+                </div>
+                <button type="submit" class="btn">Submit Answer</button>
+            </form>
+        </div>
+
+        <div id="result-screen" class="hidden">
+            <h1>Quiz Results</h1>
+            <div class="feedback-msg" id="feedback-message"></div>
+            
+            <p>Correct: <span style="color:var(--secondary-color); font-weight:bold" id="total-correct">0</span> | 
+               Wrong/Timeout: <span style="color:var(--danger-color); font-weight:bold" id="total-wrong">0</span></p>
+            
+            <h3>Question Review</h3>
+            <div class="history-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Question</th>
+                            <th>Your Answer</th>
+                            <th>Correct Answer</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-rows">
+                        </tbody>
+                </table>
+            </div>
+            <br>
+            <button class="btn" id="restart-btn" style="background-color: var(--primary-color);">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // High-clarity audio oscillator setup 
+        let audioCtx = null;
+
+        function playAlertSound() {
+            // Initialize or resume audio context on the fly to bypass browser blocking security
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            let startTime = audioCtx.currentTime;
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            
+            osc.type = 'triangle'; // Clear, audible presence
+            osc.frequency.setValueAtTime(1000, startTime); // Crisp 1000Hz alert tone
+            
+            gain.gain.setValueAtTime(0.3, startTime); 
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.25); // Clean termination
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(startTime);
+            osc.stop(startTime + 0.25);
+        }
+
+        // Game state variables
+        const TOTAL_QUESTIONS = 10;
+        const TIME_PER_QUESTION = 60;
+        let selectedLevel = "easy";
+        let currentQuestionNo = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let timerInterval = null;
+        let timeLeft = TIME_PER_QUESTION;
+
+        let currentItem = { num1: 0, num2: 0, correctAns: 0 };
+        let quizHistory = [];
+
+        // DOM elements
+        const startScreen = document.getElementById('start-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const timerBox = document.getElementById('timer-box');
+        const timerSpan = document.getElementById('timer-count');
+        const questionText = document.getElementById('question-text');
+        const answerInput = document.getElementById('answer-input');
+        const historyRows = document.getElementById('history-rows');
+        const feedbackMessage = document.getElementById('feedback-message');
+
+        // Level selections
+        document.querySelectorAll('.level-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
+                const target = e.currentTarget;
+                target.classList.add('selected');
+                selectedLevel = target.getAttribute('data-level');
+            });
+        });
+
+        document.getElementById('start-btn').addEventListener('click', startQuiz);
+        document.getElementById('restart-btn').addEventListener('click', showStartScreen);
+        document.getElementById('quiz-form').addEventListener('submit', handleAnswerSubmit);
+
+        function showStartScreen() {
+            resultScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+
+        function startQuiz() {
+            currentQuestionNo = 0;
+            correctCount = 0;
+            wrongCount = 0;
+            quizHistory = [];
+            
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            currentQuestionNo++;
+            if (currentQuestionNo > TOTAL_QUESTIONS) {
+                endQuiz();
+                return;
+            }
+
+            document.getElementById('q-num').textContent = currentQuestionNo;
+            answerInput.value = '';
+            timerBox.classList.remove('warning-active');
+            document.body.classList.remove('countdown-flash');
+            answerInput.focus();
+
+            let maxRange = (selectedLevel === "easy") ? 10 : 20;
+            let n1 = Math.floor(Math.random() * maxRange) + 1;
+            let n2 = Math.floor(Math.random() * maxRange) + 1;
+
+            currentItem = {
+                num1: n1,
+                num2: n2,
+                correctAns: n1 * n2
+            };
+
+            questionText.textContent = `${n1} × ${n2}`;
+
+            clearInterval(timerInterval);
+            timeLeft = TIME_PER_QUESTION;
+            timerSpan.textContent = timeLeft;
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerSpan.textContent = timeLeft;
+
+                // Alerts directly sound starting at exactly 10 down to 1
+                if (timeLeft <= 10 && timeLeft >= 1) {
+                    playAlertSound();
+                    timerBox.classList.add('warning-active');
+                    
+                    // Flash screen background smoothly
+                    document.body.classList.add('countdown-flash');
+                    setTimeout(() => {
+                        document.body.classList.remove('countdown-flash');
+                    }, 250);
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    wrongCount++;
+                    quizHistory.push({
+                        q: `${currentItem.num1} × ${currentItem.num2}`,
+                        userAns: "Timed Out",
+                        realAns: currentItem.correctAns,
+                        status: "timeout"
+                    });
+                    nextQuestion();
+                }
+            }, 1000);
+        }
+
+        function handleAnswerSubmit(e) {
+            e.preventDefault();
+            clearInterval(timerInterval);
+
+            const inputVal = parseInt(answerInput.value, 10);
+            let status = "";
+
+            if (inputVal === currentItem.correctAns) {
+                correctCount++;
+                status = "correct";
+            } else {
+                wrongCount++;
+                status = "wrong";
+            }
+
+            quizHistory.push({
+                q: `${currentItem.num1} × ${currentItem.num2}`,
+                userAns: inputVal,
+                realAns: currentItem.correctAns,
+                status: status
+            });
+
+            nextQuestion();
+        }
+
+        function endQuiz() {
+            clearInterval(timerInterval);
+            document.body.classList.remove('countdown-flash');
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+
+            document.getElementById('total-correct').textContent = correctCount;
+            document.getElementById('total-wrong').textContent = wrongCount;
+
+            let msg = "";
+            if (correctCount === 10) msg = "Excellent! 🌟";
+            else if (correctCount === 9) msg = "Very Good! 👍";
+            else if (correctCount === 8) msg = "Good! 😊";
+            else if (correctCount === 7) msg = "Keep it up! 💪";
+            else msg = "Keep practicing, you can do it! ✨";
+
+            feedbackMessage.textContent = msg;
+
+            historyRows.innerHTML = "";
+            quizHistory.forEach((item, index) => {
+                const row = document.createElement('tr');
+                let badgeClass = "";
+                let displayStatus = "";
+
+                if (item.status === "correct") {
+                    badgeClass = "correct-row";
+                    displayStatus = "Correct ✓";
+                } else if (item.status === "wrong") {
+                    badgeClass = "wrong-row";
+                    displayStatus = "Wrong ✗";
+                } else {
+                    badgeClass = "timeout-row";
+                    displayStatus = "No Answer ⏱";
+                }
+
+                row.className = badgeClass;
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${item.q}</td>
+                    <td>${item.userAns}</td>
+                    <td>${item.realAns}</td>
+                    <td>${displayStatus}</td>
+                `;
+                historyRows.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>
