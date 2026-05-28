@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Large Animated Smiley - 30s Color Learner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            height: 100%;
+            width: 100%;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+            overflow: hidden;
+            background-color: #1a1a1a; /* Safe dark gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Start Screen Overlay (Required for audio) */
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            cursor: pointer;
+        }
+        #start-button {
+            padding: 20px 40px;
+            font-size: 3rem;
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        /* Continuous Timer (always present) */
+        #timer-display {
+            position: absolute;
+            top: 5%;
+            font-size: 5rem;
+            font-weight: bold;
+            color: #ffffff;
+            opacity: 0.6;
+            user-select: none;
+            z-index: 5;
+        }
+
+        /* The Main Smiley Sphere */
+        #color-sphere {
+            /* Basic Size: 80% of the minimum of screen width or height */
+            width: 80vmin;
+            height: 80vmin;
+            
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            transition: background 0.5s ease;
+            
+            /* Continuous baseline breathing animation (scale 80%-90%) */
+            animation: breatheGently 4s infinite ease-in-out;
+        }
+
+        /* The Smiley Face SVG Graphics */
+        .smiley-svg {
+            width: 70%;
+            height: 70%;
+        }
+
+        /* Standard elements setup */
+        .eye { transform-origin: center; }
+        .mouth { transform-origin: center; }
+
+        /* GENTLE Breathing Animation: Scale fluctuations from baseline (80%) to small max (90%) */
+        @keyframes breatheGently {
+            0%, 100% { transform: scale(1); }    /* Effectively 80vmin */
+            50% { transform: scale(1.125); }   /* Effectively ~90vmin */
+        }
+
+        /* BUZZER Window Animation: Scale fluctuations from baseline (80%) to large max (100%) */
+        @keyframes alertBreathing {
+            0%, 100% { transform: scale(1); }    /* Effectively 80vmin */
+            50% { transform: scale(1.25); }    /* Effectively 100vmin */
+        }
+        
+        .breathe-alert-active {
+            animation: alertBreathing 1.5s infinite ease-in-out !important; /* Faster and larger */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" onclick="startApp()">
+        <button id="start-button">Tap to Play Colors! 😊</button>
+    </div>
+
+    <!-- Main Game Container -->
+    <div id="timer-display">30</div>
+    
+    <!-- Large Animated Gradient Sphere with large Smiley -->
+    <div id="color-sphere">
+        <svg class="smiley-svg" viewBox="0 0 100 100">
+            <circle class="eye" cx="33" cy="38" r="7" fill="black" />
+            <circle class="eye" cx="67" cy="38" r="7" fill="black" />
+            <path class="mouth" d="M 25,60 A 25,25 0 0,0 75,60" stroke="black" stroke-width="7" stroke-linecap="round" fill="none" />
+        </svg>
+    </div>
+
+    <script>
+        const colors = [
+            { name: 'RED', base: '#cc0000', light: '#ff6666', faceColor: 'black' },
+            { name: 'BLUE', base: '#0000cc', light: '#6666ff', faceColor: 'white' },
+            { name: 'YELLOW', base: '#cca300', light: '#ffff33', faceColor: 'black' },
+            { name: 'GREEN', base: '#008000', light: '#33cc33', faceColor: 'black' },
+            { name: 'PINK', base: '#d81b60', light: '#ff80ab', faceColor: 'black' },
+            { name: 'PURPLE', base: '#4a148c', light: '#ba68c8', faceColor: 'white' },
+            { name: 'WHITE', base: '#cccccc', light: '#ffffff', faceColor: 'black' },
+            { name: 'BLACK', base: '#000000', light: '#555555', faceColor: 'white' }
+        ];
+
+        let currentColorIndex = 0;
+        let secondsElapsed = 0;
+        let mainTimer = null;
+        let audioCtx = null;
+
+        const sphere = document.getElementById('color-sphere');
+        const timerText = document.getElementById('timer-display');
+        const overlay = document.getElementById('start-overlay');
+        const svgElements = document.querySelectorAll('.eye, .mouth');
+
+        // Function to create and play the bell chime
+        function playBellSound() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(880, now); // A5 note
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(1200, now); 
+
+            gainNode.gain.setValueAtTime(0.18, now); 
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+
+            osc1.connect(gainNode);
+            osc2.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc1.start(now);
+            osc2.start(now);
+            osc1.stop(now + 0.7);
+            osc2.stop(now + 0.7);
+        }
+
+        // Action when user taps the start button
+        function startApp() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            overlay.style.display = 'none';
+            updateColor();
+            mainTimer = setInterval(tick, 1000);
+        }
+
+        // Updates the color and adapts smiley face features
+        function updateColor() {
+            const current = colors[currentColorIndex];
+            
+            // Apply 3D radial gradient
+            sphere.style.background = `radial-gradient(circle at 30% 30%, ${current.light}, ${current.base})`;
+            
+            // Set dynamic face feature colors for visibility
+            svgElements.forEach(el => {
+                if (el.classList.contains('mouth')) {
+                    el.style.stroke = current.faceColor;
+                } else {
+                    el.style.fill = current.faceColor;
+                }
+            });
+
+            sphere.classList.remove('breathe-alert-active');
+            timerText.innerText = "30";
+        }
+
+        // The master clock tick
+        function tick() {
+            secondsElapsed++;
+            
+            let secondsLeft = 30 - secondsElapsed;
+            timerText.innerText = secondsLeft;
+
+            // Trigger action window: Last 10 seconds (from 20s to 30s)
+            if (secondsElapsed >= 20 && secondsElapsed < 30) {
+                playBellSound();
+                
+                // SWITCH Animation to larger buzzer fluctuation (80%-100%)
+                if (!sphere.classList.contains('breathe-alert-active')) {
+                    sphere.classList.add('breathe-alert-active');
+                }
+            }
+
+            // Cycle color at the 30-second mark
+            if (secondsElapsed >= 30) {
+                secondsElapsed = 0;
+                currentColorIndex = (currentColorIndex + 1) % colors.length;
+                updateColor();
+            }
+        }
+    </script>
+</body>
+</html>
